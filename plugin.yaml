@@ -1,0 +1,175 @@
+# CAD Preload Plugin for Fabrikator
+# Provides library documentation, tutorials, and examples for CAD agents
+#
+# Assets are bundled with the plugin in the assets/ folder:
+# - assets/tutorials/*.md  - Library tutorials
+# - assets/examples/*.scad - Code examples
+
+plugin:
+  id: cad-preload
+  slug: cad-preload
+  name: CAD Library Preload
+  version: "1.0.0"
+  author: Fabrikator Team
+  authorEmail: support@fabrikator.io
+  description: |
+    Preloads CAD library documentation, tutorials, and examples directly into 
+    the agent's context. This helps the agent write better OpenSCAD code by 
+    providing immediate access to library references without search calls.
+    
+    Currently includes:
+    - BOSL2 (Belfry OpenSCAD Library v2) quick reference
+    - BOSL2 tutorials and guides
+    - BOSL2 code examples
+    - Common library list (threads-scad, dotSCAD, Round-Anything, NopSCADlib)
+    
+    Features:
+    - Quick reference for common patterns
+    - Full tutorials loaded from plugin assets
+    - Code examples loaded from plugin assets
+    - Reduces need for search_docs calls for common operations
+  shortDescription: CAD library tutorials and examples for better code generation
+  categories:
+    - cad
+    - documentation
+    - libraries
+  keywords:
+    - bosl2
+    - openscad
+    - library
+    - tutorials
+    - examples
+    - preload
+  iconUrl: https://fabrikator.ai/icons/cad-preload.png
+
+requirements:
+  minPlatformVersion: "1.0.0"
+
+capabilities:
+  prompts:
+    agents:
+      # Quick reference (static, small)
+      - agent: cad
+        position: prepend
+        priority: 10
+        content: |
+          ## AVAILABLE OPENSCAD LIBRARIES
+          
+          The following libraries are installed and available for use:
+          - **BOSL2** (Belfry OpenSCAD Library v2) - Comprehensive library with enhanced primitives
+          - **threads-scad** - Thread generation library
+          - **dotSCAD** - Functional OpenSCAD library
+          - **Round-Anything** - Fillets and rounding library
+          - **NopSCADlib** - Vitamins and printed parts library
+          
+          You do NOT need to call get_libs; use this list.
+          
+          ## BOSL2 QUICK REFERENCE
+          
+          ### Core Primitives (ALWAYS use these instead of vanilla OpenSCAD)
+          ```scad
+          // Instead of cylinder() use:
+          cyl(h=10, d=5, rounding=1);  // Cylinder with rounded edges
+          cyl(h=10, d1=5, d2=3);       // Tapered cylinder
+          
+          // Instead of cube() use:
+          cuboid([10, 20, 5], rounding=2);  // Rounded box
+          cuboid([10, 20, 5], chamfer=1);   // Chamfered box
+          
+          // Instead of sphere() use:
+          sphere(d=10);  // Same but consistent with BOSL2 style
+          ```
+          
+          ### Attachments (Position parts relative to each other)
+          ```scad
+          // Attach child to parent's face
+          cuboid([20, 20, 5])
+            attach(TOP) cyl(h=10, d=5);  // Cylinder on top
+          
+          // Common attachment points: TOP, BOTTOM, LEFT, RIGHT, FRONT, BACK
+          // Edges: TOP+FRONT, BOTTOM+LEFT, etc.
+          // Corners: TOP+FRONT+LEFT, etc.
+          ```
+          
+          ### Transformations
+          ```scad
+          // Position helpers
+          up(10) cube(5);      // Move up (Z+)
+          down(10) cube(5);    // Move down (Z-)
+          left(10) cube(5);    // Move left (X-)
+          right(10) cube(5);   // Move right (X+)
+          fwd(10) cube(5);     // Move forward (Y+)
+          back(10) cube(5);    // Move back (Y-)
+          
+          // Rotation helpers
+          xrot(45) cube(5);    // Rotate around X
+          yrot(45) cube(5);    // Rotate around Y
+          zrot(45) cube(5);    // Rotate around Z
+          ```
+          
+          ### Pipes and Tubes
+          ```scad
+          // Hollow cylinder (tube)
+          tube(h=20, od=10, id=8);  // Outer diameter 10, inner diameter 8
+          
+          // Path sweep for complex pipes
+          path = [[0,0,0], [50,0,0], [50,50,0], [50,50,50]];
+          path_sweep(circle(d=5), path);
+          ```
+          
+          ### Boolean Operations with BOSL2
+          ```scad
+          // Difference with tags
+          diff("hole")
+            cuboid([20, 20, 10])
+              attach(TOP) tag("hole") cyl(h=15, d=5);
+          ```
+
+      # Tutorials (loaded from plugin assets)
+      - agent: cad
+        position: append
+        priority: 15
+        content: |
+          ## LIBRARY TUTORIALS
+          
+          The following tutorials provide detailed guidance on using CAD libraries:
+        contentFromAssets:
+          - path: tutorials/*.md
+            wrapper: "### {basename}\n\n{content}"
+            separator: "\n\n---\n\n"
+            maxFiles: 10  # Limit to avoid context overflow
+
+      # Code examples (loaded from plugin assets)
+      - agent: cad
+        position: append
+        priority: 20
+        content: |
+          ## CODE EXAMPLES
+          
+          Study these examples for common library patterns:
+        contentFromAssets:
+          - path: examples/*.scad
+            wrapper: "### {basename}\n\n```scad\n{content}\n```"
+            separator: "\n\n"
+
+      # Usage reminders (static)
+      - agent: cad
+        position: append
+        priority: 25
+        content: |
+          ## LIBRARY USAGE REMINDERS
+          
+          Before writing any OpenSCAD code:
+          1. Use BOSL2 primitives (cyl, cuboid) instead of vanilla (cylinder, cube)
+          2. Use attachments for positioning instead of translate()
+          3. Use up/down/left/right/fwd/back for simple movements
+          4. Use xrot/yrot/zrot for rotations
+          5. Use tube() for hollow cylinders, not difference()
+          
+          If you need more details about a specific library function, use the documentation search plugin.
+
+pricing:
+  model: free
+
+validation:
+  status: approved
