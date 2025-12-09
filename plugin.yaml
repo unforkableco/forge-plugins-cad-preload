@@ -9,7 +9,6 @@ plugin:
   id: cad-preload
   slug: cad-preload
   name: CAD Library Preload
-  version: "1.0.0"
   author: Fabrikator Team
   authorEmail: support@fabrikator.io
   description: |
