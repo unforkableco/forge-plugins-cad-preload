@@ -49,7 +49,7 @@ capabilities:
     agents:
       # Quick reference (static, small)
       - agent: cad
-        position: prepend
+        position: append
         priority: 10
         content: |
           ## AVAILABLE OPENSCAD LIBRARIES
@@ -60,8 +60,149 @@ capabilities:
           - **dotSCAD** - Functional OpenSCAD library
           - **Round-Anything** - Fillets and rounding library
           - **NopSCADlib** - Vitamins and printed parts library
+
+          ## MANDATORY LIBRARY USAGE RULES
+          - ❌ **NEVER use vanilla \`cylinder()\`** → ✅ **ALWAYS use BOSL2 \`cyl()\`** (supports \`anchor=\`, \`orient=\`)
+          - ❌ **NEVER use vanilla \`cube()\`** → ✅ **ALWAYS use BOSL2 \`cuboid()\`** (supports \`anchor=\`, rounding)
+          - ❌ **NEVER use \`translate([x,0,0])\`** → ✅ **ALWAYS use BOSL2 \`right(x)\`** (or \`left()\`, \`fwd()\`, \`back()\`, \`up()\`, \`down()\`)
+          - ❌ **NEVER use \`translate() + rotate() + cylinder()\`** → ✅ **ALWAYS use \`cyl()\` with \`anchor=\` and \`orient=\`**
+          - ❌ **NEVER manually position connected parts** → ✅ **ALWAYS use BOSL2 \`attach(SIDE)\`** to connect objects
+          - ❌ **NEVER use vanilla \`rotate([a,b,c])\` for orientation** → ✅ **ALWAYS use BOSL2 \`orient=\` parameter or \`xrot()\`, \`yrot()\`, \`zrot()\`**
+  
+          ## PERFORMANCE OPTIMIZATION (⚠️ CRITICAL - READ THIS)
+            Complex geometry can cause renders to take HOURS or TIME OUT. Avoid these patterns:
+
+            **FORBIDDEN OPERATIONS (will cause timeout):**
+            - \`minkowski()\` - O(n*m) complexity, NEVER use with spheres or high-poly objects
+            - \`hull()\` on many objects - exponential complexity, use \`hull_objects()\` instead
+            - Multiple nested CSG operations on minkowski results - use \`minkowski_union()\` instead
+            - \`$fn = 64\` or higher on curved surfaces - use \`$fn = 24\` or lower
           
-          You do NOT need to call get_libs; use this list.
+            **✅ USE INSTEAD:**
+            - For fillets/rounds: Use BOSL2 \`rounding=\` parameter on \`cuboid()\`, \`cyl()\`, etc.
+            - For pipe bends: Use BOSL2 \`path_sweep()\` or \`tube()\` with \`path=\`
+            - For smooth curves: Keep \`$fn <= 32\`, use \`$fn = $preview ? 16 : 32\`
+            - For complex shapes: Break into simple primitives with \`union()\`
+
+            1. **Use adaptive $fn based on context:**
+              \`\`\`openscad
+              // RECOMMENDED: Lower resolution during development, full resolution for export
+              $fn = $preview ? 16 : 32;  // 16 for preview/validation, 32 for final 3MF
+              \`\`\`
+
+            2. **For threaded holes specifically:**
+              - Threads are computationally expensive (helical geometry with many facets)
+              - Use \`$fn = 16\` or lower during development
+              - Only increase to \`$fn = 32\` for final export if thread quality matters
+              - Consider: do you REALLY need actual threads? For visualization, a simple cylinder with slightly smaller diameter often suffices
+
+            3. **General $fn guidelines:**
+              - \`$fn = 16\` - Fast preview, acceptable for most prototyping
+              - \`$fn = 24\` - Good balance of quality and speed
+              - \`$fn = 32\` - High quality, noticeably slower for complex models
+              - \`$fn = 64+\` - ⛔ FORBIDDEN during development, causes timeouts
+
+            4. **Place $fn at file top** so it affects all geometry:
+              \`\`\`openscad
+              // At the top of your SCAD file
+              $fn = $preview ? 16 : 32;
+              
+              include <BOSL2/std.scad>
+              // ... rest of code
+              \`\`\`
+
+          **BOSL2 PIPE AND TUBE EXAMPLES** (⚠️ CRITICAL FOR PLUMBING/PIPING PROJECTS)
+   
+          **For hollow pipes and tubes**, ALWAYS use BOSL2's dedicated functions:
+          
+          **Simple straight hollow tube:**
+          \`\`\`openscad
+          include <BOSL2/std.scad>
+          $fn = $preview ? 16 : 32;
+          
+          // tube() creates a hollow cylinder directly - NO difference() needed!
+          tube(h=50, od=13, id=9, anchor=BOTTOM);  // 2mm wall thickness
+          \`\`\`
+          
+          **90-degree elbow pipe (HOLLOW):**
+          \`\`\`openscad
+          include <BOSL2/std.scad>
+          $fn = $preview ? 16 : 32;
+          
+          id = 9;   // inner diameter
+          od = 13;  // outer diameter (2mm wall)
+          bend_r = 15;  // bend radius to centerline
+          
+          // Use path_sweep with a hollow circle profile (region)
+          // Step 1: Create 2D hollow circle as a region (NOT a module!)
+          hollow_profile = difference(circle(d=od), circle(d=id));
+          
+          // Step 2: Create the 3D path (arc for the bend)
+          bend_path = arc(n=17, r=bend_r, angle=[0, 90]);  // 17 points for smooth curve
+          
+          // Step 3: Sweep the hollow profile along the path
+          path_sweep(hollow_profile, bend_path);
+          \`\`\`
+          
+          **90-degree elbow with straight legs:**
+          \`\`\`openscad
+          include <BOSL2/std.scad>
+          $fn = $preview ? 16 : 32;
+          
+          id = 9; od = 13;
+          bend_r = 15;
+          leg1_len = 40;  // longer leg
+          leg2_len = 20;  // shorter leg
+          
+          hollow_profile = difference(circle(d=od), circle(d=id));
+          
+          // Build full path: straight → arc → straight
+          // Use BOSL2 path functions for correct concatenation
+          path = concat(
+            [for (z = [0 : 5 : leg1_len]) [0, 0, z]],  // Leg 1 going up
+            arc(n=17, r=bend_r, angle=[0, 90], cp=[bend_r, 0, leg1_len]),  // Arc bend
+            [for (y = [0 : 5 : leg2_len]) [bend_r + y, 0, leg1_len + bend_r]]  // Leg 2 going right
+          );
+          
+          path_sweep(hollow_profile, path);
+          \`\`\`
+          
+          **Adding a flange to the elbow:**
+          \`\`\`openscad
+          include <BOSL2/std.scad>
+          $fn = $preview ? 16 : 32;
+          
+          module elbow_with_flange() {
+            id = 9; od = 13; bend_r = 15;
+            flange_d = 25; flange_t = 2;
+            
+            union() {
+              // The elbow pipe (use path_sweep as shown above)
+              color("white") elbow_pipe();
+              
+              // The flange - simple disc with hole
+              color("white")
+              translate([0, 0, 5])  // Position near the bend
+              difference() {
+                cyl(d=flange_d, h=flange_t, anchor=CENTER);
+                cyl(d=od + 0.1, h=flange_t + 1, anchor=CENTER);  // Hole for pipe
+              }
+            }
+          }\`\`\`
+
+           **⚠️ COMMON MISTAKES TO AVOID:**
+            - ❌ \`difference() { cylinder(); cylinder(); }\` - Don't use vanilla primitives for hollow shapes
+            - ❌ Creating 2D profile as a module instead of a variable - \`path_sweep\` needs a shape, not a module
+            - ❌ Using Python-style list slicing \`list[0:5]\` - OpenSCAD uses \`[for (i=[0:4]) list[i]]\`
+            - ❌ Trying to use \`return\` statements - OpenSCAD doesn't have return
+            - ❌ Using \`arc_points()\` - The correct function is \`arc()\`
+            
+            **✅ KEY PATTERNS:**
+            - Use \`tube()\` for simple hollow cylinders
+            - Use \`path_sweep(profile, path)\` for pipes following complex paths
+            - Create 2D profiles as variables: \`profile = circle(d=10);\` NOT as modules
+            - Use \`arc(n=N, r=R, angle=[start, end])\` to create arc paths
+            - Use \`concat()\` to join path segments, NOT list slicing
           
           ## BOSL2 QUICK REFERENCE
           
