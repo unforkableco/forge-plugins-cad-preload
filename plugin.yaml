@@ -265,19 +265,19 @@ capabilities:
               attach(TOP) tag("hole") cyl(h=15, d=5);
           ```
 
-      # Tutorials (loaded from plugin assets)
-      - agent: cad
-        position: append
-        priority: 15
-        content: |
-          ## LIBRARY TUTORIALS
+      # # Tutorials (loaded from plugin assets)
+      # - agent: cad
+      #   position: append
+      #   priority: 15
+      #   content: |
+      #     ## LIBRARY TUTORIALS
           
-          The following tutorials provide detailed guidance on using CAD libraries:
-        contentFromAssets:
-          - path: tutorials/*.md
-            wrapper: "### {basename}\n\n{content}"
-            separator: "\n\n---\n\n"
-            maxFiles: 10  # Limit to avoid context overflow
+      #     The following tutorials provide detailed guidance on using CAD libraries:
+      #   contentFromAssets:
+      #     - path: tutorials/*.md
+      #       wrapper: "### {basename}\n\n{content}"
+      #       separator: "\n\n---\n\n"
+      #       maxFiles: 10  # Limit to avoid context overflow
 
       # Code examples (loaded from plugin assets)
       - agent: cad
